@@ -56,8 +56,18 @@ jobs:
       - name: Build Cef .NET Application
         run: dotnet build Dotnet/VRCX-Cef.csproj -p:Configuration=Release -p:WarningLevel=0 -p:Platform=x64 -p:PlatformTarget=x64 -p:RestorePackagesConfig=true -t:"Restore;Clean;Build" -m -a x64 --self-contained
 
+      # --- Debug：看 secrets 是否真的有值（空字串/未設都會是 false） ---
+      - name: Debug secrets presence
+        run: |
+          echo "AZURE_CLIENT_ID set?       ${{ secrets.AZURE_CLIENT_ID != '' }}"
+          echo "AZURE_TENANT_ID set?       ${{ secrets.AZURE_TENANT_ID != '' }}"
+          echo "AZURE_SUBSCRIPTION_ID set? ${{ secrets.AZURE_SUBSCRIPTION_ID != '' }}"
+          echo "AZURE_CLIENT_SECRET set?   ${{ secrets.AZURE_CLIENT_SECRET != '' }}"
+          echo "AZURE_ACCOUNT_NAME set?    ${{ secrets.AZURE_ACCOUNT_NAME != '' }}"
+          echo "AZURE_PROFILE_NAME set?    ${{ secrets.AZURE_PROFILE_NAME != '' }}"
+
       # --- Azure 登入（強制 OIDC），僅在三個必要 secrets 皆存在時執行 ---
-      - name: Azure login
+      - name: Azure login (OIDC)
         if: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_TENANT_ID != '' && secrets.AZURE_SUBSCRIPTION_ID != '' }}
         uses: azure/login@v2
         with:
@@ -66,7 +76,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # --- 簽 .NET 可執行檔（Secrets 不齊就跳過） ---
+      # --- 簽 .NET 可執行檔（Secrets 不齊就跳過；不影響後續打包） ---
       - name: Sign Dotnet executables
         if: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_TENANT_ID != '' && secrets.AZURE_SUBSCRIPTION_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && secrets.AZURE_ACCOUNT_NAME != '' && secrets.AZURE_PROFILE_NAME != '' }}
         uses: azure/trusted-signing-action@v0
@@ -116,7 +126,7 @@ jobs:
           echo "Setup FileName: ${file_name}"
           mv Installer/VRCX_Setup.exe $file_name
 
-      # --- 簽 Installer（Secrets 不齊就跳過；不影響產生安裝檔） ---
+      # --- 簽 Installer（Secrets 不齊就跳過；安裝檔仍會產生與上傳） ---
       - name: Sign Cef setup
         if: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_TENANT_ID != '' && secrets.AZURE_SUBSCRIPTION_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && secrets.AZURE_ACCOUNT_NAME != '' && secrets.AZURE_PROFILE_NAME != '' }}
         uses: azure/trusted-signing-action@v0
@@ -144,6 +154,7 @@ jobs:
         with:
           name: Cef-Setup
           path: VRCX_${{ needs.set_version.outputs.version }}_Setup.exe
+
 
 
     build_dotnet_linux:
